@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["tc39-intl-era-monthcode"] = {"id":"tc39-intl-era-monthcode","dfns":[{"id":"ecma262","href":"https://tc39.es/proposal-intl-era-monthcode/#ecma262","text":"ECMA-262","type":"dfn","for":[],"access":"public","informative":false,"heading":{"id":"normative-references","title":"Normative References","number":"5"},"refs":[]}]};

@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["tc39-decorators"] = {"id":"tc39-decorators","dfns":[{"id":"non-strict-code","href":"https://tc39.es/proposal-decorators/#non-strict-code","text":"non-strict code","type":"dfn","for":[],"access":"public","informative":false,"heading":{"id":"sec-strict-mode-code","title":"6Strict Mode Code","number":null},"refs":[]}]};

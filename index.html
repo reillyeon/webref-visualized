@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Webref Visualized — the web of web specifications</title>
+  <meta name="description" content="An interactive graph of how web platform specifications reference one another, built from the W3C webref crawl.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <header class="brand">
+      <h1>Webref Visualized</h1>
+      <p class="tagline">How web platform specifications reference one another, from the
+        <a href="https://github.com/w3c/webref" target="_blank" rel="noopener">webref</a> crawl.</p>
+      <dl id="stats" class="stats"></dl>
+    </header>
+
+    <section class="panel" id="search-panel">
+      <label class="search" for="search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+        <input id="search" type="search" placeholder="Find a spec… (e.g. fetch, css-grid)" autocomplete="off" spellcheck="false">
+      </label>
+      <ul id="search-results" class="search-results" hidden></ul>
+    </section>
+
+    <section class="panel" id="filters">
+      <h2>Edges</h2>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="show-normative" checked><span class="swatch edge normative"></span>Normative</label>
+        <label class="toggle"><input type="checkbox" id="show-informative" checked><span class="swatch edge informative"></span>Informative</label>
+      </div>
+      <h2>Nodes</h2>
+      <label class="toggle" title="Merge specs that share a series shortname (e.g. css-color-3/4/5/6) into one node, combining their references and de-duplicating their definitions"><input type="checkbox" id="collapse-series">Collapse spec series into one node</label>
+      <label class="toggle"><input type="checkbox" id="hide-isolated" checked>Hide specs with no connections</label>
+      <label class="range">
+        <span>Min. incoming refs <output id="min-indegree-out">0</output></span>
+        <input type="range" id="min-indegree" min="0" max="50" value="0">
+      </label>
+      <h2>Organizations</h2>
+      <ul id="org-legend" class="legend"></ul>
+    </section>
+
+    <section class="panel detail" id="detail" hidden>
+      <button class="close" id="detail-close" aria-label="Clear selection">×</button>
+      <p class="eyebrow" id="detail-org"></p>
+      <h2 id="detail-title"></h2>
+      <p class="meta" id="detail-meta"></p>
+      <div class="actions">
+        <a id="detail-link" class="button" target="_blank" rel="noopener">Open spec ↗</a>
+        <button id="detail-dive" class="button primary" type="button">Explore definitions →</button>
+      </div>
+      <div class="refs">
+        <h3>References <span id="out-count" class="count"></span></h3>
+        <ul id="out-list" class="ref-list"></ul>
+        <h3>Referenced by <span id="in-count" class="count"></span></h3>
+        <ul id="in-list" class="ref-list"></ul>
+      </div>
+    </section>
+
+    <!-- Dive mode: definitions of a single spec -->
+    <section class="panel dive" id="dive" hidden>
+      <button class="back" id="dive-back" type="button">← All specifications</button>
+      <p class="eyebrow" id="dive-org"></p>
+      <h2 id="dive-title"></h2>
+      <dl id="dive-stats" class="stats"></dl>
+      <label class="search" for="dive-search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+        <input id="dive-search" type="search" placeholder="Find a definition…" autocomplete="off" spellcheck="false">
+      </label>
+      <ul id="dive-search-results" class="search-results" hidden></ul>
+      <h2 class="section">Definitions</h2>
+      <label class="toggle"><input type="checkbox" id="dive-show-unreferenced">Show definitions nobody links to</label>
+      <ul id="dive-types" class="legend"></ul>
+      <div id="dive-detail" class="dive-detail" hidden></div>
+    </section>
+
+    <footer class="hint">
+      <p id="hint-graph"><kbd>Scroll</kbd> zoom · <kbd>Drag</kbd> pan or move a node · <kbd>Click</kbd> select · <kbd>Dbl-click</kbd> open spec · <kbd>Esc</kbd> clear</p>
+      <p id="hint-dive" hidden><kbd>Scroll</kbd> zoom in to read definitions · <kbd>Click</kbd> a definition or spec · <kbd>Dbl-click</kbd> open in spec · <kbd>Esc</kbd> back</p>
+    </footer>
+  </aside>
+
+  <main id="stage">
+    <canvas id="graph"></canvas>
+    <div id="tooltip" class="tooltip" hidden></div>
+    <div id="loading" class="loading">Laying out the graph…</div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="data/graph.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

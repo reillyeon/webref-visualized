@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["sparql12-results-xml"] = {"id":"sparql12-results-xml","dfns":[{"id":"defn-srd","href":"https://w3c.github.io/sparql-results-xml/spec/#defn-srd","text":"SPARQL Results Document","type":"dfn","for":[],"access":"private","informative":true,"heading":{"id":"definition","title":"Definition","number":"2"},"refs":[]}]};

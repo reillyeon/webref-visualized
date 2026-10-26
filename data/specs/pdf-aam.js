@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["pdf-aam"] = {"id":"pdf-aam","dfns":[{"id":"dfn-plsi","href":"https://w3c.github.io/aria/pdf-aam/#dfn-plsi","text":"PDF Logical Structure Item (PLSI)","type":"dfn","for":[],"access":"public","informative":true,"heading":{"id":"glossary","title":"PDF-specific Terms & Definitions","number":"2"},"refs":[]}]};

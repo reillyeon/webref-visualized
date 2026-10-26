@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["shacl12-profiling"] = {"id":"shacl12-profiling","dfns":[{"id":"dfn-shacl-element","href":"https://w3c.github.io/data-shapes/shacl12-profiling/#dfn-shacl-element","text":"SHACL element","type":"dfn","for":[],"access":"private","informative":false,"heading":{"id":"terminology","title":"Terminology","number":"1.3"},"refs":[]}]};

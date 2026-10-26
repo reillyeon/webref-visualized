@@ -1,0 +1,1 @@
+(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["quirks"] = {"id":"quirks","dfns":[{"id":"documents-body-element","href":"https://quirks.spec.whatwg.org/#documents-body-element","text":"document\u2019s body element","type":"dfn","for":[],"access":"private","informative":false,"heading":{"id":"terminology","title":"Terminology","number":"2.2"},"refs":[]}]};
