@@ -1,18 +1,46 @@
 /* Webref Visualized — force-directed graph of spec references, plus a
  * radial "dive" view of one spec's definitions and who links to them.
  * Renders with <canvas> (≈770 nodes / ≈7.7k edges is too many for SVG).
+ * Data is fetched live from the webref crawl by data.js.
  */
-(() => {
+(async () => {
   "use strict";
+
+  // ---------- Loading overlay --------------------------------------------------
+
+  const loadingEl = document.getElementById("loading");
+  const loadingText = document.getElementById("loading-text");
+  const loadingBar = document.getElementById("loading-bar");
+  const loadingDetail = document.getElementById("loading-detail");
+  function showProgress(text, frac = null, detail = "") {
+    loadingEl.classList.remove("done");
+    loadingText.textContent = text;
+    loadingDetail.textContent = detail;
+    loadingBar.parentElement.classList.toggle("indeterminate", frac == null);
+    loadingBar.style.width = `${Math.round((frac ?? 0) * 100)}%`;
+  }
+  function hideProgress() { loadingEl.classList.add("done"); }
+  function progressReporter(labels) {
+    return ({ phase, done, total }) => {
+      const label = labels[phase] || phase;
+      if (phase === "index") showProgress(label, null, WebrefData.base);
+      else showProgress(label, total ? done / total : null, `${done.toLocaleString()} / ${total.toLocaleString()}`);
+    };
+  }
 
   // ---------- Data ------------------------------------------------------------
 
-  const graph = window.WEBREF_GRAPH;
-  if (!graph) {
-    document.getElementById("loading").textContent =
-      "data/graph.js not found — run ./build_graph.py first.";
-    return;
+  let graph;
+  try {
+    graph = await WebrefData.loadGraph(progressReporter({
+      index: "Fetching the spec index…",
+      refs: "Loading each spec's references…",
+    }));
+  } catch (e) {
+    showProgress("Could not load the webref crawl.", 0, `${e.message} — base: ${WebrefData.base}`);
+    throw e;
   }
+  showProgress("Laying out the graph…", null);
 
   const rawNodes = graph.nodes;
   const rawNodeById = new Map(rawNodes.map((n) => [n.id, n]));
@@ -359,31 +387,33 @@
 
   // ---------- Dive mode: data loading & layout -------------------------------
 
+  const dfnCache = new Map(); // node id -> {dfns, rawDfnCount}
+  const expand = (n) => (n.isSeries ? n.memberNodes : [n]);
+
   function loadSpecData(node) {
-    const id = node.id;
-    window.WEBREF_SPECS = window.WEBREF_SPECS || {};
-    if (window.WEBREF_SPECS[id]) return Promise.resolve(window.WEBREF_SPECS[id]);
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = node.isSeries
-        ? `data/series/${encodeURIComponent(node.series)}.js`
-        : `data/specs/${encodeURIComponent(id)}.js`;
-      s.onload = () => { s.remove(); window.WEBREF_SPECS[id] ? resolve(window.WEBREF_SPECS[id]) : reject(new Error("no data")); };
-      s.onerror = () => { s.remove(); reject(new Error("load failed")); };
-      document.head.appendChild(s);
-    });
+    if (dfnCache.has(node.id)) return dfnCache.get(node.id);
+    // Definitions come from the spec itself (or all series members, current
+    // first so its version of a duplicate wins); link files are only fetched
+    // for the specs the reference graph already told us point at this one.
+    const targets = node.isSeries
+      ? [rawNodeById.get(node.current), ...node.memberNodes.filter((m) => m.id !== node.current)].filter(Boolean)
+      : [node];
+    const referrers = [...new Set(node.in.flatMap((l) => expand(l.source)))];
+    const p = WebrefData.loadDefinitions(targets, referrers, graph.resolve, progressReporter({
+      dfns: `Loading definitions of ${node.label}…`,
+      links: `Scanning links from the ${referrers.length} specs that reference ${node.label}…`,
+    })).catch((e) => { dfnCache.delete(node.id); throw e; });
+    dfnCache.set(node.id, p);
+    return p;
   }
 
   async function enterDive(spec) {
-    if (!spec || !spec.dfnCount) return;
-    const loading = document.getElementById("loading");
-    loading.textContent = `Loading definitions of ${spec.label}…`;
-    loading.classList.remove("done");
+    if (!spec || !spec.hasDfns) return;
     let data;
     try { data = await loadSpecData(spec); }
     catch (e) {
-      loading.textContent = `Could not load definitions for ${spec.id} — run ./build_graph.py and serve over HTTP.`;
-      setTimeout(() => loading.classList.add("done"), 2500);
+      showProgress(`Could not load definitions for ${spec.id}.`, 0, e.message);
+      setTimeout(hideProgress, 3000);
       return;
     }
     state.mode = "dive";
@@ -400,7 +430,7 @@
     setModeUI();
     history.replaceState(null, "", `#${encodeURIComponent(spec.id)}/dfns`);
     fitDive(0);
-    loading.classList.add("done");
+    hideProgress();
   }
 
   function exitDive() {
@@ -923,7 +953,6 @@
     if (n.isSeries) {
       bits.push(`collapsed series of ${n.memberNodes.length} specs: ` +
         n.memberNodes.map((m) => `<code>${esc(m.id)}</code>`).join(", "));
-      bits.push(`${n.rawDfnCount.toLocaleString()} definitions → ${n.dfnCount.toLocaleString()} after de-duplication`);
     }
     if (n.status) bits.push(esc(n.status));
     if (n.standing && n.standing !== "good") bits.push(esc(n.standing));
@@ -933,9 +962,8 @@
     const link = document.getElementById("detail-link");
     link.href = n.url || "#"; link.hidden = !n.url;
     const diveBtn = document.getElementById("detail-dive");
-    diveBtn.disabled = !n.dfnCount;
-    diveBtn.textContent = n.dfnCount
-      ? `Explore ${n.dfnCount.toLocaleString()} definitions →` : "No definitions extracted";
+    diveBtn.disabled = !n.hasDfns;
+    diveBtn.textContent = n.hasDfns ? "Explore definitions →" : "No definitions extracted";
 
     const sortRefs = (arr, other) => [...arr].sort((a, b) =>
       (a.kind === b.kind ? 0 : a.kind === "normative" ? -1 : 1) || other(b).inDegree - other(a).inDegree);
@@ -979,11 +1007,12 @@
       [spec.organization, ...(spec.groups || [])].filter(Boolean).join(" · ");
     document.getElementById("dive-title").textContent = spec.title || spec.id;
     const referenced = d.data.dfns.filter((x) => x.refs.length).length;
+    const total = d.data.dfns.length, raw = d.data.rawDfnCount;
     document.getElementById("dive-stats").innerHTML = [
-      ["Definitions", d.data.dfns.length],
-      ["Linked to", referenced],
-      ["By specs", d.specNodes.length],
-    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v.toLocaleString()}</dd></div>`).join("");
+      ["Definitions", raw > total ? `${total.toLocaleString()} <small>of ${raw.toLocaleString()}</small>` : total.toLocaleString()],
+      ["Linked to", referenced.toLocaleString()],
+      ["By specs", d.specNodes.length.toLocaleString()],
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
 
     const counts = d3.rollup(d.data.dfns.filter((x) => d.showUnreferenced || x.refs.length), (v) => v.length, (x) => x.cat.id);
     diveTypes.innerHTML = DFN_CATS.filter((c) => counts.get(c.id)).map((c) =>
@@ -1024,7 +1053,7 @@
         <p class="meta"><code>${esc(n.spec.id)}</code> · links to ${dfns.length} definition${dfns.length === 1 ? "" : "s"} of ${esc(dive.spec.label)}</p>
         <div class="actions">
           <a class="button" href="${esc(n.spec.url)}" target="_blank" rel="noopener">Open spec ↗</a>
-          ${n.spec.dfnCount ? `<button class="button primary" type="button" data-dive="${esc(n.spec.id)}">Explore its definitions →</button>` : ""}
+          ${n.spec.hasDfns ? `<button class="button primary" type="button" data-dive="${esc(n.spec.id)}">Explore its definitions →</button>` : ""}
         </div>
         <div class="refs"><h3>Definitions used <span class="count">${dfns.length}</span></h3>
         <ul class="ref-list">${dfns.map((dn) =>
@@ -1062,7 +1091,10 @@
     if (fitted || simulation.alpha() > 0.35) return;
     fitted = true;
     fitToView();
-    document.getElementById("loading").classList.add("done");
+    hideProgress();
+    document.getElementById("source").innerHTML =
+      `Data: <a href="${esc(graph.meta.source)}" target="_blank" rel="noopener">${esc(graph.meta.source)}</a>` +
+      (graph.meta.crawlDate ? ` · crawled ${esc(new Date(graph.meta.crawlDate).toLocaleDateString())}` : "");
     const [id, sub] = decodeURIComponent(location.hash.slice(1)).split("/");
     if (id.startsWith("series:") && !state.collapse) setCollapse(true);
     if (id && nodeById.has(id)) {

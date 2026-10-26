@@ -81,17 +81,24 @@
     <footer class="hint">
       <p id="hint-graph"><kbd>Scroll</kbd> zoom · <kbd>Drag</kbd> pan or move a node · <kbd>Click</kbd> select · <kbd>Dbl-click</kbd> open spec · <kbd>Esc</kbd> clear</p>
       <p id="hint-dive" hidden><kbd>Scroll</kbd> zoom in to read definitions · <kbd>Click</kbd> a definition or spec · <kbd>Dbl-click</kbd> open in spec · <kbd>Esc</kbd> back</p>
+      <p id="source" class="source"></p>
     </footer>
   </aside>
 
   <main id="stage">
     <canvas id="graph"></canvas>
     <div id="tooltip" class="tooltip" hidden></div>
-    <div id="loading" class="loading">Laying out the graph…</div>
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <div class="loading-box">
+        <p id="loading-text">Fetching the spec index…</p>
+        <div class="bar indeterminate"><div id="loading-bar"></div></div>
+        <p id="loading-detail" class="loading-detail"></p>
+      </div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-  <script src="data/graph.js"></script>
+  <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

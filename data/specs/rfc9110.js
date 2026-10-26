@@ -1,1 +1,0 @@
-(window.WEBREF_SPECS = window.WEBREF_SPECS || {})["rfc9110"] = {"id":"rfc9110","dfns":[{"id":"idempotent","href":"https://httpwg.org/specs/rfc9110.html#idempotent","text":"idempotent","type":"dfn","for":[],"access":"public","informative":false,"heading":{"id":"idempotent.methods","title":"Idempotent Methods","number":"9.2.2"},"refs":[]}]};
