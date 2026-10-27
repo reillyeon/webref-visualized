@@ -12,15 +12,84 @@
   if (!BASE.endsWith("/")) BASE += "/";
 
   const cache = new Map(); // url -> Promise<json>
-  function fetchJson(path) {
-    const url = new URL(path, new URL(BASE, location.href)).href;
-    if (!cache.has(url)) {
-      cache.set(url, fetch(url).then((r) => {
+  const sources = { cache: 0, network: 0 }; // where responses came from (per service worker)
+  let indexDate = null; // crawl date of the index we built the graph from
+  const resolveUrl = (path) => new URL(path, new URL(BASE, location.href)).href;
+
+  function fetchJson(path, init) {
+    const url = resolveUrl(path);
+    if (init?.cache === "reload" || !cache.has(url)) {
+      const p = fetch(url, init).then((r) => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText} for ${url}`);
+        const src = r.headers.get("X-Webref-Source");
+        if (src) sources[src.startsWith("cache") ? "cache" : "network"]++;
         return r.json();
-      }).catch((e) => { cache.delete(url); throw e; }));
+      }).catch((e) => { if (cache.get(url) === p) cache.delete(url); throw e; });
+      cache.set(url, p);
     }
     return cache.get(url);
+  }
+
+  // ---------- Service worker & background revalidation ----------------------
+
+  const swReady = (async () => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return null;
+    try {
+      return await navigator.serviceWorker.register("sw.js");
+    } catch (e) {
+      console.warn("webref: service worker registration failed", e);
+      return null;
+    }
+  })();
+
+  /** Wait (briefly) until the worker controls this page, so that even the
+   *  very first visit's downloads land in the cache. */
+  async function swControl() {
+    if (!(await swReady)) return;
+    await navigator.serviceWorker.ready;
+    if (navigator.serviceWorker.controller) return;
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, 1000);
+      navigator.serviceWorker.addEventListener("controllerchange", () => { clearTimeout(t); resolve(); }, { once: true });
+    });
+  }
+
+  function swMessage(msg) {
+    return new Promise((resolve) => {
+      const ctl = navigator.serviceWorker?.controller;
+      if (!ctl) return resolve(null);
+      const id = Math.random().toString(36).slice(2);
+      const onMsg = (ev) => {
+        if (ev.data?.id !== id) return;
+        navigator.serviceWorker.removeEventListener("message", onMsg);
+        resolve(ev.data);
+      };
+      navigator.serviceWorker.addEventListener("message", onMsg);
+      ctl.postMessage({ ...msg, id });
+    });
+  }
+
+  /**
+   * Check for a newer crawl without disturbing the loaded page. Re-fetches
+   * index.json from the network; if its crawl date differs from the one we
+   * loaded, purges the stale cache, re-warms it with everything this page
+   * has fetched so far, and resolves {updated: true, date}.
+   */
+  async function revalidate(onProgress) {
+    await swReady;
+    const fresh = await fetch(resolveUrl("index.json"), { cache: "reload" }).then((r) => {
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      return r.json();
+    });
+    if (!indexDate || fresh.date === indexDate) {
+      return { updated: false, date: fresh.date, source: sources };
+    }
+    // The crawl moved on: everything but the fresh index is now stale.
+    await swMessage({ type: "purge", keep: [resolveUrl("index.json")] });
+    const urls = [...cache.keys()].filter((u) => u !== resolveUrl("index.json"));
+    await pool(urls, 6, (u) => fetch(u, { cache: "reload" }),
+      (done, total) => onProgress?.({ phase: "revalidate", done, total }));
+    return { updated: true, date: fresh.date, previousDate: indexDate, source: sources };
   }
 
   /** Run `fn` over `items` with at most `limit` in flight, reporting progress. */
@@ -111,7 +180,9 @@
    */
   async function loadGraph(onProgress) {
     onProgress?.({ phase: "index", done: 0, total: 1 });
+    await swControl();
     const index = await fetchJson("index.json");
+    indexDate = index.date;
     const specs = index.results;
     const resolve = makeResolver(specs);
 
@@ -284,5 +355,9 @@
     };
   }
 
-  window.WebrefData = { get base() { return BASE; }, loadGraph, loadDefinitions };
+  window.WebrefData = {
+    get base() { return BASE; },
+    get sources() { return { ...sources }; },
+    loadGraph, loadDefinitions, revalidate,
+  };
 })();

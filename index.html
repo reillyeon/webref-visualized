@@ -88,6 +88,11 @@
   <main id="stage">
     <canvas id="graph"></canvas>
     <div id="tooltip" class="tooltip" hidden></div>
+    <div id="toast" class="toast" role="status" hidden>
+      <span id="toast-text"></span>
+      <button id="toast-action" class="button primary" type="button"></button>
+      <button id="toast-close" class="close" type="button" aria-label="Dismiss">×</button>
+    </div>
     <div id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-box">
         <p id="loading-text">Fetching the spec index…</p>

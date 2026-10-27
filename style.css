@@ -378,6 +378,41 @@ kbd {
 .source { margin-top: 8px !important; }
 .source a { color: var(--text-3); text-decoration: underline dotted; }
 
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100% - 32px));
+  padding: 10px 10px 10px 16px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  z-index: 4;
+  animation: rise 0.3s ease-out;
+}
+.toast .button { padding: 6px 12px; flex: none; }
+.toast .close {
+  flex: none;
+  width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+}
+.toast .close:hover { opacity: 1; background: hsl(0 0% 100% / 0.12); }
+@keyframes rise {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (max-width: 760px) {
   body { grid-template-columns: 1fr; grid-template-rows: 1fr 45vh; }
   #sidebar { order: 2; height: auto; border-right: 0; border-top: 1px solid var(--line); }

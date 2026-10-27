@@ -26,6 +26,23 @@ Everything is fetched on demand from the published crawl at
 Fetched files are cached in memory for the session, so revisiting a spec's
 definitions is instant.
 
+### Offline cache & background revalidation
+
+`sw.js` is a service worker that caches every JSON data file it sees
+(cache-first). On repeat visits the graph loads from the cache in well under a
+second, and it works offline. The app shell (HTML/JS/CSS) is deliberately
+*not* cached by the worker, so code changes show up immediately.
+
+Once the graph has been laid out, the page revalidates in the background:
+it re-fetches `index.json` from the network and compares its crawl `date`
+with the one it loaded. If the crawl has moved on, the worker purges the
+stale entries, re-warms the cache with everything the page has fetched so
+far, and a toast offers to reload. The footer shows the data source, crawl
+date, where the data came from, and the revalidation status.
+
+Service workers only run on `https:` or `localhost`, so serve the page over
+HTTP rather than opening `index.html` from disk.
+
 ## Usage
 
 ```sh

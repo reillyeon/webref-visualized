@@ -1092,9 +1092,9 @@
     fitted = true;
     fitToView();
     hideProgress();
-    document.getElementById("source").innerHTML =
-      `Data: <a href="${esc(graph.meta.source)}" target="_blank" rel="noopener">${esc(graph.meta.source)}</a>` +
-      (graph.meta.crawlDate ? ` · crawled ${esc(new Date(graph.meta.crawlDate).toLocaleDateString())}` : "");
+    renderSource();
+    // The page is up: now quietly check whether the crawl has moved on.
+    startRevalidation();
     const [id, sub] = decodeURIComponent(location.hash.slice(1)).split("/");
     if (id.startsWith("series:") && !state.collapse) setCollapse(true);
     if (id && nodeById.has(id)) {
@@ -1111,5 +1111,48 @@
       .translate(width / 2 - k * (xs[0] + xs[1]) / 2, height / 2 - k * (ys[0] + ys[1]) / 2)
       .scale(k);
     d3.select(canvas).transition().duration(500).call(zoom.transform, t);
+  }
+
+  // ---------- Data source, caching & background revalidation ----------------
+
+  const sourceEl = document.getElementById("source");
+  function renderSource(status = "") {
+    const src = WebrefData.sources;
+    const served = src.cache + src.network
+      ? (src.cache && !src.network ? "served from cache" : src.cache ? "mostly from cache" : "fetched from network")
+      : "";
+    sourceEl.innerHTML =
+      `Data: <a href="${esc(graph.meta.source)}" target="_blank" rel="noopener">${esc(graph.meta.source)}</a>` +
+      (graph.meta.crawlDate ? ` · crawled ${esc(new Date(graph.meta.crawlDate).toLocaleString())}` : "") +
+      (served ? ` · ${served}` : "") + (status ? `<br>${status}` : "");
+  }
+
+  const toast = document.getElementById("toast");
+  function showToast(text, { action, onAction } = {}) {
+    document.getElementById("toast-text").textContent = text;
+    const btn = document.getElementById("toast-action");
+    btn.hidden = !action;
+    btn.textContent = action || "";
+    btn.onclick = onAction || null;
+    toast.hidden = false;
+  }
+  document.getElementById("toast-close").addEventListener("click", () => { toast.hidden = true; });
+
+  async function startRevalidation() {
+    renderSource("Checking for a newer crawl…");
+    try {
+      const result = await WebrefData.revalidate(({ done, total }) =>
+        renderSource(`Newer crawl found — refreshing cache ${done} / ${total}…`));
+      if (result.updated) {
+        renderSource(`Newer crawl available (${esc(new Date(result.date).toLocaleString())}).`);
+        showToast(`A newer webref crawl from ${new Date(result.date).toLocaleString()} is cached and ready.`,
+          { action: "Reload", onAction: () => location.reload() });
+      } else {
+        renderSource("Up to date.");
+      }
+    } catch (e) {
+      console.warn("webref: revalidation failed", e);
+      renderSource(navigator.onLine === false ? "Offline — showing cached data." : "Could not check for updates.");
+    }
   }
 })();
